@@ -1,0 +1,407 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 fade-in">
+        <div>
+            <h2 class="h3 mb-2">{{ topic.title }}</h2>
+            <p class="text-muted mb-0">{{ topic.description }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'view_topic_analysis' topic.id %}" class="btn btn-primary">
+                <i class="fas fa-chart-line me-2"></i>Analysis
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm fade-in">
+        <div class="card-body p-0">
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="questionnaires-tab" data-bs-toggle="tab" href="#questionnaires">
+                        <i class="fas fa-clipboard-list me-2"></i>Questionnaires
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="interviews-tab" data-bs-toggle="tab" href="#interviews">
+                        <i class="fas fa-comments me-2"></i>Interviews
+                    </a>
+                </li>
+            </ul>
+
+            <div class="tab-content p-4">
+                <div class="tab-pane fade show active" id="questionnaires">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="h5 mb-0">Manage Questionnaires</h4>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createQuestionnaireModal">
+                            <i class="fas fa-plus me-2"></i>New Questionnaire
+                        </button>
+                    </div>
+
+                    {% if questionnaires %}
+                    <div class="row g-4">
+                        {% for questionnaire in questionnaires %}
+                        <div class="col-md-6 col-lg-4 slide-up">
+                            <div class="card h-100 border-0 shadow-sm">
+                                <div class="card-body d-flex flex-column">
+                                    <h5 class="card-title">{{ questionnaire.name }}</h5>
+                                    <p class="card-text text-muted">{{ questionnaire.description|truncatewords:20 }}</p>
+                                    <div class="mt-3 d-flex flex-wrap gap-2">
+                                        <a href="{% url 'view_questionnaire' questionnaire.id %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i> View
+                                        </a>
+                                        <a href="{% url 'view_submissions' type='questionnaire' pk=questionnaire.id %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i> View Responses
+                                        </a>
+                                        <a href="{% url 'view_analysis' type='questionnaire' pk=questionnaire.id %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-chart-line me-1"></i> Analyse
+                                        </a>
+                                        <button class="btn btn-danger btn-sm" 
+                                                onclick="confirmDelete('questionnaire', {{ questionnaire.id }})">
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="fas fa-clipboard fa-3x mb-3"></i>
+                            <h5>No questionnaires yet</h5>
+                            <p>Create your first questionnaire to get started</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="tab-pane fade" id="interviews">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="h5 mb-0">Manage Interviews</h4>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createInterviewModal">
+                            <i class="fas fa-plus me-2"></i>New Interview
+                        </button>
+                    </div>
+
+                    {% if interviews %}
+                    <div class="row g-4">
+                        {% for interview in interviews %}
+                        <div class="col-md-6 col-lg-4 slide-up">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ interview.name }}</h5>
+                                    <p class="card-text text-muted">{{ interview.description|truncatewords:20 }}</p>
+                                    <div class="mt-3">
+                                        <a href="{% url 'view_interview' interview.id %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i> View
+                                        </a>
+                                        <a href="{% url 'view_submissions' type='interview' pk=interview.id %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-eye me-1"></i> View Responses
+                                        </a>
+                                        <a href="{% url 'view_analysis' type='interview' pk=interview.id %}" class="btn btn-outline-primary btn-sm">
+                                            <i class="fas fa-chart-line me-1"></i> Analyse
+                                        </a>
+                                        <button class="btn btn-danger btn-sm"
+                                                onclick="confirmDelete('interview', {{ interview.id }})">
+                                            <i class="fas fa-trash me-1"></i>Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="text-muted">
+                            <i class="fas fa-comments fa-3x mb-3"></i>
+                            <h5>No interviews yet</h5>
+                            <p>Create your first interview to get started</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Questionnaire Modal -->
+<div class="modal fade" id="createQuestionnaireModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Questionnaire</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="questionnaireForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Number of Questions</label>
+                        <select class="form-select" name="question_count" required>
+                            <option value="">Select number of questions</option>
+                            <option value="5">5 questions</option>
+                            <option value="10">10 questions</option>
+                            <option value="15">15 questions</option>
+                            <option value="custom">Custom amount</option>
+                        </select>
+                        <div id="customQuestionCount" class="mt-2 d-none">
+                            <input type="number" class="form-control" name="custom_count" min="1" max="30" 
+                                   placeholder="Enter number of questions (1-30)">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Questionnaire Description</label>
+                        <textarea class="form-control" name="description" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeBio" name="include_bio">
+                            <label class="form-check-label" for="includeBio">
+                                Include Biographical Data Section
+                            </label>
+                        </div>
+                    </div>
+                    <div id="generatingSpinner" class="d-none text-center">
+                        <div class="spinner-border text-primary"></div>
+                        <p>Generating questionnaire...</p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="questionnaireForm" class="btn btn-primary" id="generateBtn">
+                    Generate Questionnaire
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Interview Modal -->
+<div class="modal fade" id="createInterviewModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create New Interview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="interviewForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label">Number of Questions</label>
+                        <select class="form-select" name="question_count" required>
+                            <option value="">Select number of questions</option>
+                            <option value="5">5 questions</option>
+                            <option value="10">10 questions</option>
+                            <option value="15">15 questions</option>
+                            <option value="custom">Custom amount</option>
+                        </select>
+                        <div id="customInterviewCount" class="mt-2 d-none">
+                            <input type="number" class="form-control" name="custom_count" min="1" max="30">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Interview Description</label>
+                        <textarea class="form-control" name="description" rows="4" required
+                                placeholder="Describe the interview topic and target audience..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="includeInterviewBio" name="include_bio">
+                            <label class="form-check-label" for="includeInterviewBio">
+                                Include Biographical Questions
+                            </label>
+                        </div>
+                    </div>
+                    <div id="interviewSpinner" class="d-none text-center">
+                        <div class="spinner-border text-primary"></div>
+                        <p>Generating interview...</p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="interviewForm" class="btn btn-primary" id="generateInterviewBtn">
+                    Generate Interview
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add modal and JS at bottom of template -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete this item? This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let isSubmitting = false;
+    
+    document.getElementById('questionnaireForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (isSubmitting) return;
+        isSubmitting = true;
+        
+        const submitBtn = document.getElementById('generateBtn');
+        const spinner = document.getElementById('generatingSpinner');
+        const modal = document.getElementById('createQuestionnaireModal');
+        
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+        
+        try {
+            const formData = new FormData(this);
+            const response = await fetch("{% url 'create_questionnaire' topic.id %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) throw new Error(data.error || 'Generation failed');
+            
+            // Hide modal and refresh page to show new questionnaire
+            bootstrap.Modal.getInstance(modal).hide();
+            window.location.href = `/questionnaire/${data.id}/`;
+            
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            isSubmitting = false;
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    });
+
+    document.querySelector('[name="question_count"]').addEventListener('change', function(e) {
+        const customDiv = document.getElementById('customQuestionCount');
+        const customInput = document.querySelector('[name="custom_count"]');
+        
+        if (e.target.value === 'custom') {
+            customDiv.classList.remove('d-none');
+            customInput.required = true;
+        } else {
+            customDiv.classList.add('d-none');
+            customInput.required = false;
+        }
+    });
+
+</script>
+<script>
+    document.getElementById('interviewForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        if (isSubmitting) return;
+        isSubmitting = true;
+        
+        const submitBtn = document.getElementById('generateInterviewBtn');
+        const spinner = document.getElementById('interviewSpinner');
+        const modal = document.getElementById('createInterviewModal');
+        
+        submitBtn.disabled = true;
+        spinner.classList.remove('d-none');
+        
+        try {
+            const formData = new FormData(this);
+            const response = await fetch("{% url 'create_interview' topic.id %}", {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) throw new Error(data.error || 'Generation failed');
+            
+            bootstrap.Modal.getInstance(modal).hide();
+            window.location.href = `/interview/${data.id}/`;
+            
+        } catch (error) {
+            alert('Error: ' + error.message);
+        } finally {
+            isSubmitting = false;
+            submitBtn.disabled = false;
+            spinner.classList.add('d-none');
+        }
+    });
+    
+    // Handle custom question count for interview
+    document.querySelector('#interviewForm [name="question_count"]').addEventListener('change', function(e) {
+        const customDiv = document.getElementById('customInterviewCount');
+        const customInput = document.querySelector('#interviewForm [name="custom_count"]');
+        
+        if (e.target.value === 'custom') {
+            customDiv.classList.remove('d-none');
+            customInput.required = true;
+        } else {
+            customDiv.classList.add('d-none');
+            customInput.required = false;
+        }
+    });
+    </script>
+
+<script>
+    function confirmDelete(type, id) {
+        const modal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        
+        confirmBtn.onclick = () => {
+            fetch(`/${type}/${id}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                }
+            })
+            .then(response => {
+                if(response.ok) {
+                    window.location.reload();
+                }
+            });
+            modal.hide();
+        };
+        
+        modal.show();
+    }
+
+    function deleteQuestionnaire(id) {
+        confirmDelete('questionnaire', id);
+    }
+    
+    function deleteInterview(id) {
+        confirmDelete('interview', id);
+    }
+    </script>
+
+
+{% endblock %}

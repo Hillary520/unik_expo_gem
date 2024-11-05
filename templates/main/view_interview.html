@@ -1,0 +1,353 @@
+<!-- templates/main/view_interview.html -->
+{% extends 'base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<style>
+.mic-button {
+    border: none;
+    background: none;
+    color: #0d6efd;
+    cursor: pointer;
+    padding: 5px;
+    transition: all 0.3s;
+}
+
+.mic-button:hover {
+    color: #0a58ca;
+}
+
+.mic-button.listening {
+    color: #dc3545;
+    animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+}
+
+.card {
+    border: none;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+}
+
+.form-control:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(93, 135, 255, 0.25);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4 fade-in">
+    {% if user.is_authenticated %}
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'topic_detail' interview.topic.id %}">{{ interview.topic.title }}</a></li>
+            <li class="breadcrumb-item active">{{ interview.name }}</li>
+        </ol>
+    </nav>
+    {% endif %}
+    <div class="card slide-up">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <div>
+                <h4 class="mb-2">{{ interview.name }}</h4>
+                <p class="text-muted mb-0">{{ interview.description }}</p>
+            </div>
+            {% if user.is_authenticated %}
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary" onclick="exportPDF()">
+                    <i class="fas fa-file-pdf"></i> Export PDF
+                </button>
+                <button class="btn btn-outline-primary" onclick="shareItem()">
+                    <i class="fas fa-share-alt"></i> Share
+                </button>
+            </div>
+            {% endif %}
+        </div>
+        <div class="card-body">
+            <form id="interviewForm" data-id="{{ interview_id }}">
+                {% csrf_token %}
+                {% for question in interview.questions_data %}
+                <div class="mb-4">
+                    <label class="form-label fw-medium">{{ question.text }}</label>
+                    
+                    {% if question.fieldType == 'Input' %}
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="q_{{ forloop.counter }}" placeholder="Your answer">
+                            <button type="button" class="mic-button" data-target="q_{{ forloop.counter }}">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    {% elif question.fieldType == 'Textarea' %}
+                        <div class="position-relative">
+                            <textarea class="form-control" name="q_{{ forloop.counter }}" rows="3" placeholder="Your answer"></textarea>
+                            <button type="button" class="mic-button position-absolute" 
+                                    style="bottom: 10px; right: 10px;" 
+                                    data-target="q_{{ forloop.counter }}">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-2"></i>Submit Responses
+                    </button>
+                    <a href="{% url 'topic_detail' interview.topic.id %}" class="btn btn-light">
+                        <i class="fas fa-arrow-left me-2"></i>Back
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-share-alt me-2"></i>Share
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex justify-content-around mb-3">
+                    <button class="btn btn-outline-primary" onclick="shareVia('facebook')">
+                        <i class="fab fa-facebook"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="shareVia('twitter')">
+                        <i class="fab fa-twitter"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="shareVia('linkedin')">
+                        <i class="fab fa-linkedin"></i>
+                    </button>
+                    <button class="btn btn-outline-primary" onclick="shareVia('email')">
+                        <i class="fas fa-envelope"></i>
+                    </button>
+                </div>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="shareLink" readonly>
+                    <button class="btn btn-outline-secondary" onclick="copyLink()">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<!-- Add Font Awesome for microphone icon -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+<script>
+class SpeechToTextHandler {
+    constructor() {
+        this.recognition = null;
+        this.isListening = false;
+        this.currentButton = null;
+        this.currentTextarea = null;
+        
+        this.initializeSpeechRecognition();
+    }
+    
+    initializeSpeechRecognition() {
+        if ('webkitSpeechRecognition' in window) {
+            this.recognition = new webkitSpeechRecognition();
+            this.recognition.continuous = true;
+            this.recognition.interimResults = true;
+            this.recognition.lang = 'en-US';
+            
+            this.recognition.onresult = (event) => {
+                let finalTranscript = '';
+                let interimTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += this.capitalize(transcript);
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                
+                if (finalTranscript && this.currentTextarea) {
+                    const currentValue = this.currentTextarea.value;
+                    const cursorPosition = this.currentTextarea.selectionStart;
+                    
+                    // Insert text at cursor position
+                    this.currentTextarea.value = 
+                        currentValue.substring(0, cursorPosition) +
+                        finalTranscript + ' ' +
+                        currentValue.substring(cursorPosition);
+                        
+                    // Move cursor to end of inserted text
+                    this.currentTextarea.selectionStart = 
+                    this.currentTextarea.selectionEnd = 
+                        cursorPosition + finalTranscript.length + 1;
+                }
+            };
+            
+            this.recognition.onend = () => {
+                if (this.isListening) {
+                    this.recognition.start();
+                } else {
+                    this.stopListening();
+                }
+            };
+        }
+    }
+    
+    capitalize(text) {
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+    
+    startListening(button, targetId) {
+        if (!this.recognition) return;
+        
+        if (this.isListening && this.currentButton) {
+            this.stopListening();
+        }
+        
+        this.currentButton = button;
+        this.currentTextarea = document.querySelector(`[name="${targetId}"]`);
+        this.isListening = true;
+        
+        button.classList.add('listening');
+        this.recognition.start();
+    }
+    
+    stopListening() {
+        if (!this.recognition) return;
+        
+        this.isListening = false;
+        if (this.currentButton) {
+            this.currentButton.classList.remove('listening');
+        }
+        this.recognition.stop();
+        
+        this.currentButton = null;
+        this.currentTextarea = null;
+    }
+}
+
+// Initialize speech-to-text handler
+const speechHandler = new SpeechToTextHandler();
+
+// Add click handlers to all mic buttons
+document.querySelectorAll('.mic-button').forEach(button => {
+    button.addEventListener('click', function() {
+        const targetId = this.dataset.target;
+        if (speechHandler.isListening && speechHandler.currentButton === this) {
+            speechHandler.stopListening();
+        } else {
+            speechHandler.startListening(this, targetId);
+        }
+    });
+});
+
+</script>
+
+
+<script>
+    document.getElementById('interviewForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        speechHandler.stopListening();
+        
+        const formData = new FormData(this);
+        const interviewId = this.getAttribute('data-id');
+        console.log(interviewId);
+        const answers = {};
+        formData.forEach((value, key) => {
+            answers[key] = value;
+        });
+        
+        console.log(answers);
+
+        try {
+            const response = await fetch(`/interview/${interviewId}/submit/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: JSON.stringify({
+                    answers: answers
+                })
+            });
+            
+            if (!response.ok) throw new Error('Submission failed');
+            
+            const data = await response.json();
+            if (data.redirect) {
+                window.location.href = data.redirect;
+            } else {
+                window.location.href = `/interview/${interviewId}/submissions/`;
+            }
+            
+        } catch (error) {
+            alert('Error submitting form: ' + error.message);
+        }
+    });
+</script>
+
+<script>
+    async function exportPDF() {
+        const itemId = document.getElementById('interviewForm').dataset.id;
+        
+        try {
+            window.location.href = `/interview/${itemId}/export-pdf/`;
+        } catch (error) {
+            alert('Error exporting PDF: ' + error.message);
+        }
+    }
+</script>
+
+
+<script>
+    async function shareItem() {
+        const shareModal = new bootstrap.Modal(document.getElementById('shareModal'));
+        shareModal.show();
+        
+        const itemId = document.getElementById('interviewForm').dataset.id;
+        const shareUrl = `${window.location.origin}/interview/${itemId}/`;
+        document.getElementById('shareLink').value = shareUrl;
+    }
+    
+    async function shareVia(platform) {
+        const shareUrl = document.getElementById('shareLink').value;
+        const title = document.title;
+        
+        switch(platform) {
+            case 'facebook':
+                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`);
+                break;
+            case 'twitter':
+                window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(title)}`);
+                break;
+            case 'linkedin':
+                window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`);
+                break;
+            case 'email':
+                window.location.href = `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(shareUrl)}`;
+                break;
+        }
+    }
+    
+    async function copyLink() {
+        const linkInput = document.getElementById('shareLink');
+        await navigator.clipboard.writeText(linkInput.value);
+        alert('Link copied to clipboard!');
+    }
+    
+    </script>
+
+{% endblock %}

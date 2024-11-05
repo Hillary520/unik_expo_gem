@@ -1,0 +1,115 @@
+<!-- templates/main/questionnaire_submissions.html -->
+{% extends 'base.html' %}
+{% load static %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="container mt-4 fade-in">
+    <!-- Header Card -->
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <h2 class="card-title mb-0">
+                    <i class="fas fa-comments me-2 text-primary"></i>
+                    {{ item.name }}
+                </h2>
+                <p class="text-muted mb-0 mt-1">
+                    <i class="fas fa-chart-bar me-1"></i>
+                    Total Submissions: {{ submission_count }}
+                </p>
+            </div>
+            <button class="btn btn-success btn-lg" onclick="exportExcel()">
+                <i class="fas fa-file-excel me-2"></i>
+                Export to Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Submissions Accordion -->
+    <div class="accordion shadow-sm" id="submissionsAccordion">
+        {% for question in item.questions_data %}
+        <div class="accordion-item border-0 mb-3">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed bg-white" type="button" 
+                        data-bs-toggle="collapse" 
+                        data-bs-target="#question{{ forloop.counter }}">
+                    <div class="d-flex align-items-center w-100">
+                        <span class="me-3">
+                            <i class="fas fa-question-circle text-primary fs-5"></i>
+                        </span>
+                        <div class="flex-grow-1">
+                            {{ question.text }}
+                            <span class="badge bg-primary rounded-pill ms-2">
+                                {{ submission_count }} answers
+                            </span>
+                        </div>
+                    </div>
+                </button>
+            </h2>
+            <div id="question{{ forloop.counter }}" 
+                 class="accordion-collapse collapse" 
+                 data-bs-parent="#submissionsAccordion">
+                <div class="accordion-body bg-light">
+                    {% for submission in submissions %}
+                    <div class="card mb-3 submission-answer slide-up" style="animation-delay: {{ forloop.counter0 }}00ms">
+                        <div class="card-body">
+                            <div class="d-flex align-items-center mb-2">
+                                <i class="fas fa-user-circle text-secondary me-2 fs-5"></i>
+                                <h6 class="mb-0">
+                                    Respondent 
+                                    {% if submission.respondent_name %}
+                                        ({{ submission.respondent_name }})
+                                    {% else %}
+                                        {{ forloop.counter }}
+                                    {% endif %}
+                                </h6>
+                            </div>
+                            <p class="mb-0 ms-4 ps-2 border-start border-primary">
+                                {{ submission.answers|get_answer:forloop.parentloop.counter0 }}
+                            </p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% block extra_css %}
+<style>
+    .accordion-button:not(.collapsed) {
+        background-color: var(--light-color);
+        color: var(--primary-color);
+    }
+    
+    .accordion-button:focus {
+        box-shadow: none;
+        border-color: rgba(0,0,0,.125);
+    }
+    
+    .submission-answer {
+        transition: transform 0.2s ease-in-out;
+    }
+    
+    .submission-answer:hover {
+        transform: translateX(5px);
+    }
+    
+    .accordion-item {
+        border-radius: 0.5rem !important;
+        overflow: hidden;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function exportExcel() {
+        const itemId = '{{ item.id }}';
+        window.location.href = `/questionnaire/${itemId}/export-excel/`;
+    }
+</script>
+{% endblock %}
+{% endblock %}
