@@ -25,6 +25,7 @@ from django.shortcuts import redirect
 
 logger = logging.getLogger(__name__)
 
+@login_required
 def home(request):
     topics = Topic.objects.filter(user=request.user)
     context = {'topics': topics}
@@ -555,6 +556,35 @@ def delete_questionnaire(request, pk):
         return redirect('topic_detail', pk=topic_id)
         
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
+
+@login_required
+def form_builder(request, topic_id):
+    topic = get_object_or_404(Topic, pk=topic_id, user=request.user)
+    return render(request, 'main/form_builder.html', {'topic': topic})
+
+@login_required
+@require_http_methods(["POST"])
+def create_manual_questionnaire(request, topic_id):
+    try:
+        topic = get_object_or_404(Topic, pk=topic_id, user=request.user)
+        data = json.loads(request.body)
+        
+        # Validate required fields
+        if not all(key in data for key in ['name', 'description', 'questions_data']):
+            raise ValidationError("Missing required fields")
+            
+        # Create questionnaire
+        questionnaire = Questionnaire.objects.create(
+            topic=topic,
+            name=data['name'],
+            description=data['description'],
+            questions_data=data['questions_data']
+        )
+        
+        return JsonResponse({'id': questionnaire.id})
+    except Exception as e:
+        logger.error(f"Manual questionnaire creation error: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=400)
 
 
 

@@ -24,4 +24,6 @@ urlpatterns = [
     path('topic/<int:pk>/analyse/', views.view_topic_analysis, name='view_topic_analysis'),
     path('interview/<int:pk>/delete/', views.delete_interview, name='delete_interview'),
     path('questionnaire/<int:pk>/delete/', views.delete_questionnaire, name='delete_questionnaire'),
+    path('questionnaire/builder/<int:topic_id>/', views.form_builder, name='form_builder'),
+    path('questionnaire/create-manual/<int:topic_id>/', views.create_manual_questionnaire, name='create_manual_questionnaire'),
 ]
