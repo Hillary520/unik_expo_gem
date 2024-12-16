@@ -3,7 +3,6 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/research-analysis-platform.git
 
 # Create virtual environment
 python -m venv .venv
